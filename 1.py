@@ -3,8 +3,8 @@ import re
 
 if __name__ == "__main__":
 
-    path = input()
-    #path = "./wise_man_data/set/1"
+    #path = input()
+    #path = "./wise_man_data/set/3"
     #path = "./wise_man"
 
     correct_file = re.compile(r'^ca[0-9]*.txt$')
@@ -78,6 +78,9 @@ if __name__ == "__main__":
     TPR = TP/valid_P
     FPR = FP/valid_N
 
+    min = 1
+    TPR_min = 0
+    FPR_min = 0
     #optimizuj ne mora sve thresholdove da gleda
     for threshold in range(0, 101):
         TP = 0
@@ -89,9 +92,14 @@ if __name__ == "__main__":
                 FP += 1
         TPR_try = TP/valid_P
         FPR_try = FP/valid_N
-        #print(round(1-TPR_try, 3), round(FPR_try, 3), abs(round(1 - TPR_try, 3) - round(FPR_try, 3)))
-        if abs(round(1 - TPR_try, 3) - round(FPR_try, 3)) <= 0.01:
+        print(round(1-TPR_try, 3), round(FPR_try, 3), abs(round(1 - TPR_try, 3) - round(FPR_try, 3)))
+        tmp = abs(round(1 - TPR_try, 3) - round(FPR_try, 3))
+        if tmp < min:
+            min = tmp
+            TPR_min = TPR_try
+            FPR_min = FPR_try
+        elif tmp > min:
             break
 
 
-    print(f'{P},{N},{valid_P+valid_N},{round(TPR, 3)},{round(FPR, 3)},{round(FPR_try, 3)}')
+    print(f'{P},{N},{valid_P+valid_N},{round(TPR, 3)},{round(FPR, 3)},{round(FPR_min, 3)}')

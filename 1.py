@@ -3,8 +3,8 @@ import re
 
 if __name__ == "__main__":
 
-    path = input()
-    #path = "./wise_man_data/set/1"
+    #path = input()
+    path = "./wise_man_data/set/1"
     #path = "./wise_man"
 
     correct_file = re.compile(r'^ca[0-9]*.txt$')
@@ -30,17 +30,19 @@ if __name__ == "__main__":
                 if f.readline() == "Yes":
                     P += 1
                     if index not in file_indexes.keys():
-                        file_indexes[index] = 1
+                        file_indexes[index] = [1, -1]
                     else:
-                        if file_indexes[index] == 1:
+                        file_indexes[index][0] = 1
+                        if file_indexes[index][1] >= 70:
                             TP += 1
                         valid_P += 1
                 else:
                     N += 1
                     if index not in file_indexes.keys():
-                        file_indexes[index] = 0
+                        file_indexes[index] = [0, -1]
                     else:
-                        if file_indexes[index] == 1:
+                        file_indexes[index][0] = 0
+                        if file_indexes[index][1] >= 70:
                             FP += 1
                         valid_N += 1
                 f.close()
@@ -48,11 +50,13 @@ if __name__ == "__main__":
                 fullpath = os.path.join(dirpath, file)
                 index = file[3:-4]
                 f = open(fullpath, "r")
-                if int(f.readline()[:-1]) >= 70:
+                threshold = int(f.readline()[:-1])
+                if threshold >= 70:
                     if index not in file_indexes.keys():
-                        file_indexes[index] = 1
+                        file_indexes[index] = [-1, threshold]
                     else:
-                        if file_indexes[index] == 1:
+                        file_indexes[index][1] = threshold
+                        if file_indexes[index][0] == 1:
                             TP += 1
                             valid_P += 1
                         else:
@@ -61,9 +65,10 @@ if __name__ == "__main__":
 
                 else:
                     if index not in file_indexes.keys():
-                        file_indexes[index] = 0
+                        file_indexes[index] = [-1, threshold]
                     else:
-                        if file_indexes[index] == 1:
+                        file_indexes[index][1] = threshold
+                        if file_indexes[index][0] == 1:
                             valid_P += 1
                         else:
                             valid_N += 1
@@ -74,3 +79,17 @@ if __name__ == "__main__":
     FPR = FP/valid_N
 
     print(P, N, valid_P+valid_N, round(TPR, 3), round(FPR, 3))
+
+
+    TP = 0
+    FP = 0
+
+    for key, answer in file_indexes.items():
+        if answer[0] == 1 and answer[1] >= 70:
+            TP += 1
+        if answer[0] == 0 and answer[1] >= 70:
+            FP += 1
+
+
+    print(round(TPR, 3), round(FPR, 3))
+

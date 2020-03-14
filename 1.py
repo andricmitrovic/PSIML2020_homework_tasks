@@ -3,7 +3,7 @@ import re
 
 if __name__ == "__main__":
 
-    #path = input()
+    path = input()
     #path = "./wise_man_data/set/3"
     #path = "./wise_man"
 
@@ -92,7 +92,7 @@ if __name__ == "__main__":
                 FP += 1
         TPR_try = TP/valid_P
         FPR_try = FP/valid_N
-        print(round(1-TPR_try, 3), round(FPR_try, 3), abs(round(1 - TPR_try, 3) - round(FPR_try, 3)))
+        #print(round(1-TPR_try, 3), round(FPR_try, 3), abs(round(1 - TPR_try, 3) - round(FPR_try, 3)))
         tmp = abs(round(1 - TPR_try, 3) - round(FPR_try, 3))
         if tmp < min:
             min = tmp

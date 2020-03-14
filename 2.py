@@ -11,8 +11,8 @@ if __name__ == "__main__":
     #boxes_json = input()
     #joints_json = input()
 
-    boxes_json = "./label_humans/set/0/bboxes.json"
-    joints_json = "./label_humans/set/0/joints.json"
+    boxes_json = "./label_humans/set/1/bboxes.json"
+    joints_json = "./label_humans/set/1/joints.json"
 
     with open(boxes_json, 'r') as f:
         distros_dict = json.load(f)
@@ -68,25 +68,42 @@ if __name__ == "__main__":
                 if value[4] != frame_id:
                     continue
                 joint_approx_x = value[0]+value[2]/2        #vece od 1?
-                joint_approx_y = value[1]-value[3]/4 #malo vise gore da bude       #negativno?
+                joint_approx_y = value[1]+value[3]/4 #malo vise gore da bude       #negativno?
 
                 distance_x = abs(joint_approx_x - x)
                 distance_y = abs(joint_approx_y - y)
 
                 distance = distance_y + distance_x          #euklidsko efikasnije?
+                            #ima se vremena ubaci ojlerovo rastojanje mozda
+                boundary_distance = (value[2]+value[3])/2
+
+                factor = boundary_distance - distance       #nagradjujemo se da smo blizu vrata, sto je manji distance
+                                                            # to je veca nagrada
+                                                            #a ako je mali kvadrat i omasimo malo
 
                 # if distance == 0.4591255899629628:          #debugg
                 #     print(id, key, x, y, joint_approx_x, joint_approx_y, distance, value)
-                if id not in value[5].keys() or value[5][id] < distance:
-                    value[5][id] = distance
+                if id not in value[5].keys():
+                    value[5][id] = factor
+                else:
+                    value[5][id] += factor
+
+    # #reap bad matches
+    # reap_factor = -5.0 #tweak this
+    #
+    # for key, value in match.items():
+    #     for person, factor in list(value[5].items()):
+    #         if factor <= reap_factor:
+    #             del value[5][person]
 
     for key, value in match.items():
-        print(key, value[5])
-        min_distance = 1
-        minPerson = -1
-        for person, distance in value[5].items():
-            if distance < min_distance:
-                min_distance = distance
-                minPerson = person
-        print(f'{minPerson}:{key}')
+        #print(key, value[5])
+        max_factor = 0
+        maxPerson = -1
+        for person, factor in list(value[5].items()):
+            if factor > max_factor:
+                max_factor = factor
+                maxPerson = person
+        if maxPerson != -1:
+            print(f'{maxPerson}:{key}')
 

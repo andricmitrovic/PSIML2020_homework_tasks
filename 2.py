@@ -1,18 +1,57 @@
-from typing import List
-from pydantic import BaseModel
 import json
+from math import sqrt
+
+class BoxInfo(object):
+    def __init__(self, x, y, w, h):
+        self.x = x
+        self.y = y
+        self.w = w
+        self.h = h
+    def __str__(self):
+        return f'{x}, {y}, {w}, {h}'
+    def __repr__(self):
+        return str(self)
+
+class JointInfo:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+    def __str__(self):
+        return f'{x}, {y}'
+    def __repr__(self):
+        return str(self)
 
 
+def max_sum(dataset, chosen_ones, max, k, global_max, result, current_path):
+    if k == len(dataset):
+        if max > global_max[0]:
+            result[:] = current_path.copy()
+            global_max[0] = max
+            #print(global_max, result, current_path)
+        return
+
+    for index, (key, value) in enumerate(dataset.items()):
+        if k == index:
+            for person, factor in value.items():
+                if person not in chosen_ones:
+                    chosen_ones.add(person)
+                    current_path.append((key, person))
+                    max_sum(dataset, chosen_ones, max + factor, k + 1, global_max, result, current_path)
+                    current_path.pop()
+                    chosen_ones.remove(person)
+            max_sum(dataset, chosen_ones, max, k + 1, global_max, result, current_path)
+            break
+    return
 
 if __name__ == "__main__":
-
-    frame_to_box_joint = {}
 
     #boxes_json = input()
     #joints_json = input()
 
-    boxes_json = "./label_humans/set/1/bboxes.json"
-    joints_json = "./label_humans/set/1/joints.json"
+    boxes_json = "./label_humans/set/15/bboxes.json"
+    joints_json = "./label_humans/set/15/joints.json"
+
+    box_people_map = {}
 
     with open(boxes_json, 'r') as f:
         distros_dict = json.load(f)
@@ -22,7 +61,19 @@ if __name__ == "__main__":
     for frame in frames:
         frame_id = frame['frame_index']
         boxes = frame['bounding_boxes']
-        frame_to_box_joint[str(frame_id)] = [boxes]
+        for box in boxes:
+            id = box['identity']
+            h = box['bounding_box']['h']
+            w = box['bounding_box']['w']
+            x = box['bounding_box']['x']
+            y = box['bounding_box']['y']
+
+            if id not in box_people_map.keys():
+                box_people_map[id] = dict([])
+
+            box_people_map[id].update({frame_id: BoxInfo(x, y, w, h)})
+
+    joint_people_map = {}
 
     with open(joints_json, 'r') as f:
         distros_dict = json.load(f)
@@ -32,78 +83,89 @@ if __name__ == "__main__":
     for frame in frames:
         frame_id = frame['frame_index']
         joints = frame['joints']
-        # if frame_id in frame_to_box_joint.keys():
-        frame_to_box_joint[str(frame_id)].append(joints)
-        # else:
-        #     frame_to_box_joint[str(frame_id)] = [None, joints]
-
-
-    match = {}
-
-    for frame_id, values in frame_to_box_joint.items():
-        boxes = values[0]
-        joints = values[1]
-
-        for box in boxes:
-            id = box['identity']
-            h = box['bounding_box']['h']
-            w = box['bounding_box']['w']
-            x = box['bounding_box']['x']
-            y = box['bounding_box']['y']
-            if str(id) not in match.keys():
-                match[str(id)] = [x, y, w, h, frame_id, {}]
-            else:
-                match[str(id)][0] = x
-                match[str(id)][1] = y
-                match[str(id)][2] = w
-                match[str(id)][3] = h
-                match[str(id)][4] = frame_id
-
         for joint in joints:
             id = joint['identity']
             x = joint['joint']['x']
             y = joint['joint']['y']
-                                            #prosecno rastojanje jointa i approxa ili najgore
-            for key, value in match.items():
-                if value[4] != frame_id:
-                    continue
-                joint_approx_x = value[0]+value[2]/2        #vece od 1?
-                joint_approx_y = value[1]+value[3]/4 #malo vise gore da bude       #negativno?
 
-                distance_x = abs(joint_approx_x - x)
-                distance_y = abs(joint_approx_y - y)
+            if str(id) not in joint_people_map.keys():
+                joint_people_map[str(id)] = {}
 
-                distance = distance_y + distance_x          #euklidsko efikasnije?
-                            #ima se vremena ubaci ojlerovo rastojanje mozda
-                boundary_distance = (value[2]+value[3])/2
+            joint_people_map[id].update({frame_id: JointInfo(x, y)})
 
-                factor = boundary_distance - distance       #nagradjujemo se da smo blizu vrata, sto je manji distance
-                                                            # to je veca nagrada
-                                                            #a ako je mali kvadrat i omasimo malo
+    match = dict([])
 
-                # if distance == 0.4591255899629628:          #debugg
-                #     print(id, key, x, y, joint_approx_x, joint_approx_y, distance, value)
-                if id not in value[5].keys():
-                    value[5][id] = factor
+    for box_person, box_frames in box_people_map.items():
+        match[str(box_person)] = dict([])
+        for box_frame, box_position in box_frames.items():
+            for joint_person, joint_frames in joint_people_map.items():
+                if box_frame not in joint_frames.keys():
+                    left_frame = max([i for i in joint_frames.keys() if i < box_frame], default=None)
+                    right_frame = min([i for i in joint_frames.keys() if i > box_frame], default=None)
+                    if not left_frame or not right_frame:               #ovde nesto ako hoces da popravis test primer
+                        continue
+                    interpol_factor = (right_frame - left_frame)
+                    new_x = joint_frames[left_frame].x + \
+                            (joint_frames[right_frame].x - joint_frames[left_frame].x)/interpol_factor
+                    new_y = joint_frames[left_frame].y + \
+                            (joint_frames[right_frame].y - joint_frames[left_frame].y)/interpol_factor
+                    joint_frames.update({box_frame: JointInfo(new_x, new_y)})
+
+                joint_approx_x = box_position.x + box_position.w/2  # vece od 1?
+                joint_approx_y = box_position.y + box_position.h/4 #malo vise gore da bude       #negativno?
+
+                if box_position.x < joint_frames[box_frame].x < box_position.x + box_position.w \
+                    and box_position.y < joint_frames[box_frame].y < box_position.y + box_position.h/2:
+                    factor_medium = 1
                 else:
-                    value[5][id] += factor
+                    factor_medium = -1
 
-    # #reap bad matches
-    # reap_factor = -5.0 #tweak this
-    #
+
+
+                if str(joint_person) not in match[str(box_person)].keys():
+                    match[str(box_person)][str(joint_person)] = factor_medium
+                else:
+                    match[str(box_person)][str(joint_person)] += factor_medium
+
+    chosen_ones = set()
+
+    result = {}
+
     # for key, value in match.items():
-    #     for person, factor in list(value[5].items()):
-    #         if factor <= reap_factor:
-    #             del value[5][person]
+    #     print(key, value)
 
+    ### Reap negatives
+    reap = 0
     for key, value in match.items():
-        #print(key, value[5])
-        max_factor = 0
-        maxPerson = -1
-        for person, factor in list(value[5].items()):
-            if factor > max_factor:
-                max_factor = factor
-                maxPerson = person
-        if maxPerson != -1:
-            print(f'{maxPerson}:{key}')
+        for person, factor in list(value.items()):
+            if factor < reap:
+                del value[person]
+            else:
+                value[person] -= reap
 
+    # ### Reap all except 5 maximums for optimizing recursive function
+    # for key, value in match.items():
+    #     reaper = set()
+    #     maximums = {k: v for k, v in sorted(value.items(), key=lambda item: item[1])}
+    #     print(maximums)
+
+    ### Print sure ones and remove them
+    for key, value in list(match.items()):
+        if len(value) == 1:
+            for person, factor in list(value.items()):
+                if factor < reap:
+                    del value[person]
+                else:
+                    value[person] -= reap
+                chosen_ones.add(person)
+                print(f'{person}:{key}')
+            del match[key]
+
+    result = []
+
+    global_max = [0]
+
+    max_sum(match, chosen_ones, 0, 0, global_max, result, [])
+
+    for first, second in result:
+        print(f'{second}:{first}')

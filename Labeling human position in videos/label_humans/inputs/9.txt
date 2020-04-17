@@ -1,0 +1,2 @@
+@@DATASET_DIR@@\9\bboxes.json
+@@DATASET_DIR@@\9\joints.json
